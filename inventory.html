@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profit Mate - จัดการสต๊อกวัตถุดิบ</title>
+    <style>
+        :root {
+            --bg-deep: #07070c;
+            --bg-panel: rgba(22, 22, 32, 0.88);
+            --neon-pink: #ff2a85;
+            --neon-cyan: #00ffcc;
+            --neon-gold: #ffd700;
+            --text-main: #f1f1f6;
+            --text-muted: #a0a0b2;
+            --border-color: rgba(255, 42, 133, 0.35);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-deep); color: var(--text-main); min-height: 100vh; display: flex; overflow-x: hidden; position: relative; }
+        .galaxy-background { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; background: radial-gradient(circle at 50% 50%, #151026 0%, #07070c 80%); overflow: hidden; }
+        .star { position: absolute; background: #fff; border-radius: 50%; animation: twinkle var(--duration) infinite ease-in-out; opacity: 0; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.1; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 10px var(--neon-pink); } }
+        
+        aside { width: 270px; height: 100vh; background: rgba(12, 12, 18, 0.95); border-right: 1px solid var(--border-color); position: fixed; top: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 25px 20px; z-index: 10; backdrop-filter: blur(10px); }
+        .logo-area { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+        .logo { font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #fff, var(--neon-pink), var(--neon-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        nav { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: calc(100vh - 160px); }
+        nav::-webkit-scrollbar { width: 4px; }
+        nav::-webkit-scrollbar-thumb { background: var(--neon-pink); border-radius: 4px; }
+        nav a { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 12px; font-size: 0.95rem; font-weight: 500; transition: all 0.3s; border: 1px solid transparent; }
+        nav a:hover, nav a.active { background: linear-gradient(135deg, rgba(255, 42, 133, 0.2), rgba(0, 255, 204, 0.1)); color: #fff; border-color: var(--neon-pink); box-shadow: 0 0 15px rgba(255, 42, 133, 0.3); transform: translateX(4px); }
+        .sidebar-footer { font-size: 0.78rem; color: #666678; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
+
+        main { margin-left: 270px; flex-grow: 1; padding: 40px; z-index: 5; position: relative; }
+        .container { max-width: 1050px; margin: 0 auto; }
+
+        .main-header-title { font-size: 2.2rem; font-weight: 700; background: linear-gradient(135deg, #fff 20%, #ff758c 60%, var(--neon-pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+        .main-header-desc { color: var(--text-muted); font-size: 0.98rem; }
+
+        .section-box { background: var(--bg-panel); border: 2px solid var(--neon-pink); border-radius: 20px; padding: 25px; margin-bottom: 25px; box-shadow: 0 0 25px rgba(255, 42, 133, 0.4); }
+        .section-title { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; color: #fff; font-weight: 600; margin-bottom: 20px; text-shadow: 0 0 12px rgba(255,42,133,0.8); }
+
+        .btn-action { background: linear-gradient(135deg, var(--neon-pink), #ff5e99); color: #fff; border: none; padding: 12px 25px; border-radius: 12px; cursor: pointer; font-weight: 600; box-shadow: 0 0 25px rgba(255,42,133,0.7); transition: 0.3s; }
+        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 0 35px rgba(255,42,133,1); }
+        .btn-danger-custom { background: rgba(255,75,75,0.2); border: 1px solid #ff4b4b; color: #ff6b6b; padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+        .btn-danger-custom:hover { background: rgba(255,75,75,0.4); box-shadow: 0 0 10px #ff4b4b; }
+
+        .inventory-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .inventory-table th { background: rgba(255, 42, 133, 0.15); color: #ff758c; padding: 12px; text-align: left; font-size: 0.9rem; border-bottom: 2px solid rgba(255,42,133,0.4); }
+        .inventory-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: middle; font-size: 0.92rem; }
+        .inventory-table input { width: 100%; padding: 10px; background: #12121a; border: 1px solid rgba(255,42,133,0.3); border-radius: 8px; color: #fff; font-size: 0.9rem; }
+        .inventory-table input:focus { border-color: var(--neon-pink); outline: none; box-shadow: 0 0 10px rgba(255,42,133,0.5); }
+
+        #toastContainer { position: fixed; top: 25px; right: 25px; z-index: 10000; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+        .custom-toast { background: linear-gradient(135deg, rgba(28,28,39,0.95), rgba(20,20,28,0.98)); border: 1.5px solid var(--neon-pink); color: #fff; padding: 15px 22px; border-radius: 14px; box-shadow: 0 0 25px rgba(255, 42, 133, 0.6); display: flex; align-items: center; gap: 12px; pointer-events: auto; animation: slideIn 0.4s ease forwards; max-width: 380px; }
+        .custom-toast.success { border-color: #2ecc71; }
+        .custom-toast.error { border-color: #ff4b4b; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="galaxy-background" id="galaxyBg"></div>
+    <div id="toastContainer"></div>
+
+    <aside>
+        <div>
+            <div class="logo-area">
+                <div class="logo">✨ Profit Mate</div>
+            </div>
+            <nav>
+                <a href="index.html">🏠 หน้าแรก</a>
+                <a href="calculator.html">📊 คำนวณต้นทุน</a>
+                <a href="delivery.html"> 🛵 เดลิเวอรี่ & GP</a>
+                <a href="recipes.html"> 📜 สูตรขนม & เครื่องดื่ม</a>
+                <a href="recipe-suggestions.html">⭐ แนะนำสูตรพิเศษ</a>
+                <a href="profit-report.html">📈 รายงานยอดขาย & กำไร</a>
+                <a href="shopee.html"> 🛒 ลิงก์ตะกร้า Shopee</a>
+                <a href="history.html" 📑 ประวัติสูตรของฉัน</a>
+                <a href="inventory.html" class="active">📦 สต๊อกวัตถุดิบ</a>
+            </nav>
+        </div>
+        <div class="sidebar-footer">&copy; 2026 Profit Mate Elite[cite: 21]</div>
+    </aside>
+
+    <main>
+        <div class="container">
+            <div style="margin-bottom: 25px;">
+                <h1 class="main-header-title">📦 ระบบจัดการสต๊อกวัตถุดิบ</h1>
+                <p class="main-header-desc">ตรวจสอบวัตถุดิบทั้งหมดก่อนผลิต ตัดสต๊อกตามการใช้จริง และคำนวณยอดคงเหลืออัตโนมัติ</p>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">📊 ตารางควบคุมและตัดสต๊อกวัตถุดิบ</div>
+                <div style="overflow-x: auto;">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">ชื่อวัตถุดิบ</th>
+                                <th style="width: 18%;">สต๊อกตั้งต้น (ก่อนผลิต)</th>
+                                <th style="width: 18%;">จำนวนที่ใช้ไป (ผลิต)</th>
+                                <th style="width: 20%;">วัตถุดิบคงเหลือสุทธิ</th>
+                                <th style="width: 10%; text-align: center;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <!-- แถวตัวอย่าง -->
+                            <tr class="inv-row">
+                                <td><input type="text" class="inv-name" value="แป้งสาลีอเนกประสงค์" oninput="saveInventory()"></td>
+                                <td><input type="number" class="inv-stock" value="5000" oninput="calculateBalance(this)"></td>
+                                <td><input type="number" class="inv-used" value="1200" oninput="calculateBalance(this)"></td>
+                                <td><b class="inv-balance" style="color: var(--neon-cyan);">3800 กรัม</b></td>
+                                <td style="text-align: center;"><button type="button" class="btn-danger-custom" onclick="removeInvRow(this)">ลบ</button></td>
+                            </tr>
+                            <tr class="inv-row">
+                                <td><input type="text" class="inv-name" value="เนยสดแท้" oninput="saveInventory()"></td>
+                                <td><input type="number" class="inv-stock" value="2000" oninput="calculateBalance(this)"></td>
+                                <td><input type="number" class="inv-used" value="500" oninput="calculateBalance(this)"></td>
+                                <td><b class="inv-balance" style="color: var(--neon-cyan);">1500 กรัม</b></td>
+                                <td style="text-align: center;"><button type="button" class="btn-danger-custom" onclick="removeInvRow(this)">ลบ</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 15px;">
+                    <button type="button" class="btn-action" onclick="addInvRow()">+ เพิ่มวัตถุดิบใหม่</button>
+                    <button type="button" class="btn-action" style="background: linear-gradient(135deg, #2ecc71, #27ae60);" onclick="showToast('บันทึกและอัปเดตสต๊อกเรียบร้อยแล้ว!', 'success')">💾 บันทึกสต๊อกทั้งหมด</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const galaxyBg = document.getElementById('galaxyBg');
+            for (let i = 0; i < 150; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                const size = Math.random() * 2.5 + 1;
+                star.style.width = `${size}px`; star.style.height = `${size}px`;
+                star.style.setProperty('--duration', `${Math.random() * 3 + 2}s`);
+                star.style.animationDelay = `${Math.random() * 5}s`;
+                galaxyBg.appendChild(star);
+            }
+            loadInventory();
+        });
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `custom-toast ${type}`;
+            const icon = type === 'success' ? '✨' : '⚠️';
+            toast.innerHTML = `<div style="font-size:1.2rem;">${icon}</div><div>${message}</div>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function addInvRow(name = '', stock = 0, used = 0) {
+            const tbody = document.getElementById('inventoryTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'inv-row';
+            newRow.innerHTML = `
+                <td><input type="text" class="inv-name" value="${name}" placeholder="ชื่อวัตถุดิบ" oninput="saveInventory()"></td>
+                <td><input type="number" class="inv-stock" value="${stock}" oninput="calculateBalance(this)"></td>
+                <td><input type="number" class="inv-used" value="${used}" oninput="calculateBalance(this)"></td>
+                <td><b class="inv-balance" style="color: var(--neon-cyan);">${stock - used} หน่วย</b></td>
+                <td style="text-align: center;"><button type="button" class="btn-danger-custom" onclick="removeInvRow(this)">ลบ</button></td>
+            `;
+            tbody.appendChild(newRow);
+            calculateBalance(newRow.querySelector('.inv-stock'));
+        }
+
+        function removeInvRow(btn) {
+            btn.closest('tr').remove();
+            saveInventory();
+        }
+
+        function calculateBalance(element) {
+            const row = element.closest('tr');
+            const stock = parseFloat(row.querySelector('.inv-stock').value) || 0;
+            const used = parseFloat(row.querySelector('.inv-used').value) || 0;
+            const balance = stock - used;
+            
+            const balanceEl = row.querySelector('.inv-balance');
+            balanceEl.textContent = `${balance >= 0 ? balance : 0} หน่วย`;
+            balanceEl.style.color = balance < 0 ? '#ff4b4b' : 'var(--neon-cyan)';
+
+            if (balance < 0) {
+                showToast("คำเตือน: วัตถุดิบนี้ถูกใช้เกินสต๊อกที่มี!", "error");
+            }
+            saveInventory();
+        }
+
+        function saveInventory() {
+            const rows = document.querySelectorAll('.inv-row');
+            const inventoryData = [];
+            rows.forEach(row => {
+                inventoryData.push({
+                    name: row.querySelector('.inv-name').value,
+                    stock: row.querySelector('.inv-stock').value,
+                    used: row.querySelector('.inv-used').value
+                });
+            });
+            localStorage.setItem('profitMateInventory', JSON.stringify(inventoryData));
+        }
+
+        function loadInventory() {
+            const saved = JSON.parse(localStorage.getItem('profitMateInventory'));
+            if (saved && saved.length > 0) {
+                const tbody = document.getElementById('inventoryTableBody');
+                tbody.innerHTML = '';
+                saved.forEach(item => {
+                    addInvRow(item.name, item.stock, item.used);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

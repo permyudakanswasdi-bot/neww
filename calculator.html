@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profit Mate - คำนวณต้นทุน & แผนธุรกิจแบบรายการอัตโนมัติ</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-deep: #07070c;
+            --bg-panel: rgba(22, 22, 32, 0.88);
+            --neon-pink: #ff2a85;
+            --neon-cyan: #00ffcc;
+            --neon-gold: #ffd700;
+            --text-main: #f1f1f6;
+            --text-muted: #a0a0b2;
+            --border-color: rgba(255, 42, 133, 0.35);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-deep); color: var(--text-main); min-height: 100vh; display: flex; overflow-x: hidden; position: relative; }
+        .galaxy-background { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; background: radial-gradient(circle at 50% 50%, #151026 0%, #07070c 80%); overflow: hidden; }
+        .star { position: absolute; background: #fff; border-radius: 50%; animation: twinkle var(--duration) infinite ease-in-out; opacity: 0; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.1; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 10px var(--neon-pink); } }
+        
+        aside { width: 270px; height: 100vh; background: rgba(12, 12, 18, 0.95); border-right: 1px solid var(--border-color); position: fixed; top: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 25px 20px; z-index: 10; backdrop-filter: blur(10px); }
+        .logo-area { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+        .logo { font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #fff, var(--neon-pink), var(--neon-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        nav { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: calc(100vh - 160px); }
+        nav::-webkit-scrollbar { width: 4px; }
+        nav::-webkit-scrollbar-thumb { background: var(--neon-pink); border-radius: 4px; }
+        nav a { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 12px; font-size: 0.95rem; font-weight: 500; transition: all 0.3s; border: 1px solid transparent; }
+        nav a:hover, nav a.active { background: linear-gradient(135deg, rgba(255, 42, 133, 0.2), rgba(0, 255, 204, 0.1)); color: #fff; border-color: var(--neon-pink); box-shadow: 0 0 15px rgba(255, 42, 133, 0.3); transform: translateX(4px); }
+        .sidebar-footer { font-size: 0.78rem; color: #666678; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
+
+        main { margin-left: 270px; flex-grow: 1; padding: 40px; z-index: 5; position: relative; }
+        .calc-container { max-width: 1050px; margin: 0 auto; }
+
+        .main-header-title { font-size: 2.2rem; font-weight: 700; background: linear-gradient(135deg, #fff 20%, #ff758c 60%, var(--neon-pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+        .main-header-desc { color: var(--text-muted); font-size: 0.98rem; }
+
+        .section-box, .result-sub-box { background: var(--bg-panel); border: 2px solid var(--neon-pink); border-radius: 20px; padding: 25px; margin-bottom: 25px; box-shadow: 0 0 25px rgba(255, 42, 133, 0.4), inset 0 0 15px rgba(255, 42, 133, 0.1); }
+        .section-title { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; color: #fff; font-weight: 600; margin-bottom: 20px; text-shadow: 0 0 12px rgba(255,42,133,0.8); }
+
+        .form-grid-3 { display: grid; grid-template-columns: 2fr 1.5fr 1.5fr; gap: 15px; margin-bottom: 15px; align-items: center; }
+        @media(max-width: 768px) { .form-grid-3 { grid-template-columns: 1fr; } }
+
+        .shopee-input, .shopee-select { width: 100%; padding: 12px 15px; background: #101017; border: 1.5px solid rgba(255,42,133,0.4); border-radius: 10px; color: #fff; font-size: 0.95rem; transition: all 0.3s; }
+        .shopee-input:focus, .shopee-select:focus { border-color: var(--neon-pink); outline: none; box-shadow: 0 0 20px rgba(255, 42, 133, 0.8); }
+
+        .btn-action { background: linear-gradient(135deg, var(--neon-pink), #ff5e99); color: #fff; border: none; padding: 12px 25px; border-radius: 12px; cursor: pointer; font-weight: 600; box-shadow: 0 0 25px rgba(255,42,133,0.7); transition: 0.3s; }
+        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 0 35px rgba(255,42,133,1); }
+        .btn-danger-custom { background: rgba(255,75,75,0.2); border: 1px solid #ff4b4b; color: #ff6b6b; padding: 10px 15px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        .btn-danger-custom:hover { background: rgba(255,75,75,0.4); box-shadow: 0 0 10px #ff4b4b; }
+
+        .auto-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .auto-table th { background: rgba(255, 42, 133, 0.15); color: #ff758c; padding: 12px; text-align: left; font-size: 0.9rem; border-bottom: 2px solid rgba(255,42,133,0.4); }
+        .auto-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: middle; }
+        .auto-table input, .auto-table select { width: 100%; padding: 10px; background: #12121a; border: 1px solid rgba(255,42,133,0.3); border-radius: 8px; color: #fff; font-size: 0.9rem; }
+        .auto-table input:focus, .auto-table select:focus { border-color: var(--neon-pink); outline: none; box-shadow: 0 0 10px rgba(255,42,133,0.5); }
+
+        #resultContainer { display: block; margin-top: 30px; }
+        .result-number { font-size: 2.8rem; color: #ff758c; font-weight: 700; text-shadow: 0 0 20px rgba(255,42,133,0.9); margin: 5px 0 15px 0; text-align: center; }
+        .breakdown-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0 0 0; }
+        @media(max-width: 768px) { .breakdown-grid { grid-template-columns: 1fr; } }
+        .breakdown-item { background: rgba(16, 16, 23, 0.8); border: 1.5px solid rgba(255,42,133,0.4); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .breakdown-item span { color: #aaa; font-size: 0.9rem; }
+        .breakdown-item b { color: #fff; font-size: 1rem; }
+
+        .chart-container-box { background: rgba(16,16,23,0.8); padding: 20px; border-radius: 15px; border: 1.5px solid rgba(255,42,133,0.4); margin-top: 15px; }
+        .chart-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .chart-wrapper { position: relative; width: 100%; height: 280px; }
+
+        .price-recommend-box { background: rgba(255, 42, 133, 0.12); border: 1.5px dashed var(--neon-pink); border-radius: 12px; padding: 20px; }
+        .price-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ddd; }
+        .price-row:last-child { border-bottom: none; }
+        .price-row b { color: #2ecc71; font-size: 1.1rem; }
+
+        #toastContainer { position: fixed; top: 25px; right: 25px; z-index: 10000; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+        .custom-toast { background: linear-gradient(135deg, rgba(28,28,39,0.95), rgba(20,20,28,0.98)); border: 1.5px solid var(--neon-pink); color: #fff; padding: 15px 22px; border-radius: 14px; box-shadow: 0 0 25px rgba(255, 42, 133, 0.6); display: flex; align-items: center; gap: 12px; pointer-events: auto; animation: slideIn 0.4s ease forwards; max-width: 380px; }
+        .custom-toast.success { border-color: #2ecc71; }
+        .custom-toast.error { border-color: #ff4b4b; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="galaxy-background" id="galaxyBg"></div>
+    <div id="toastContainer"></div>
+
+    <aside>
+        <div>
+            <div class="logo-area">
+                <div class="logo">✨ Profit Mate</div>
+            </div>
+          <nav>
+                <a href="index.html">🏠 หน้าแรก</a>
+                <a href="calculator.html">📊 คำนวณต้นทุน</a>
+                <a href="delivery.html"> 🛵 เดลิเวอรี่ & GP</a>
+                <a href="recipes.html"> 📜 สูตรขนม & เครื่องดื่ม</a>
+                <a href="recipe-suggestions.html">⭐ แนะนำสูตรพิเศษ</a>
+                <a href="profit-report.html">📈 รายงานยอดขาย & กำไร</a>
+                <a href="shopee.html"> 🛒 ลิงก์ตะกร้า Shopee</a>
+                <a href="history.html" 📑 ประวัติสูตรของฉัน</a>
+                <a href="inventory.html" class="active">📦 สต๊อกวัตถุดิบ</a>
+            </nav>
+        </div>
+        <div class="sidebar-footer">&copy; 2026 Profit Mate Elite[cite: 21]</div>
+    </aside>
+
+    <main>
+        <div class="calc-container">
+            <div style="margin-bottom: 25px;">
+                <h1 class="main-header-title">📊 คำนวณต้นทุนวัตถุดิบ & แผนธุรกิจ (ระบบรายการอัตโนมัติ)</h1>
+                <p class="main-header-desc">เพิ่ม/ลบแถววัตถุดิบแบบตารางอัตโนมัติ คำนวณต้นทุนสุทธิ ทันใจ พร้อมกราฟและจุดคุ้มทุน</p>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">🏷️ 1. ข้อมูลพื้นฐานสูตรขนม</div>
+                <div class="form-grid-3" style="grid-template-columns: 2fr 1.5fr 1.5fr;">
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">ชื่อสูตรขนม</label>
+                        <input type="text" id="recipeName" class="shopee-input" placeholder="เช่น บราวน์นี่หนึบหนับ">
+                    </div>
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">หมวดหมู่</label>
+                        <select id="recipeCategory" class="shopee-select" onchange="autoCalculateSum()">
+                            <option value="เบเกอรี่ & เค้ก">เบเกอรี่ & เค้ก</option>
+                            <option value="เครื่องดื่ม">เครื่องดื่ม</option>
+                            <option value="ขนมไทย & ของหวาน">ขนมไทย & ของหวาน</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">จำนวนที่ทำได้ (ชิ้น)</label>
+                        <input type="number" id="recipeYield" class="shopee-input" value="24" min="1" oninput="autoCalculateSum()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">🛒 2. รายการวัตถุดิบ (ระบบตารางอัตโนมัติ)</div>
+                <div style="overflow-x: auto;">
+                    <table class="auto-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">ชื่อวัตถุดิบ</th>
+                                <th style="width: 18%;">ปริมาณ</th>
+                                <th style="width: 18%;">หน่วย</th>
+                                <th style="width: 20%;">ราคาซื้อ (บาท)</th>
+                                <th style="width: 9%; text-align: center;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="autoIngredientTableBody">
+                            <tr class="ingredient-row">
+                                <td><input type="text" class="ing-name" placeholder="เช่น เนยสดแท้"></td>
+                                <td><input type="number" class="ing-qty" placeholder="100" oninput="autoCalculateSum()"></td>
+                                <td>
+                                    <select class="ing-unit">
+                                        <option value="gram">กรัม</option>
+                                        <option value="ml">มิลลิลิตร</option>
+                                        <option value="piece">ชิ้น</option>
+                                        <option value="luuk">ลูก</option>
+                                        <option value="foong">ฟอง</option>
+                                        <option value="tablespoon">ช้อนโต๊ะ</option>
+                                        <option value="teaspoon">ช้อนชา</option>
+                                        <option value="pack">ซอง / ห่อ</option>
+                                        <option value="cup">ถ้วยตวง</option>
+                                    </select>
+                                </td>
+                                <td><input type="number" class="ing-price" placeholder="45.00" oninput="autoCalculateSum()"></td>
+                                <td style="text-align: center;"><button type="button" class="btn-danger-custom" onclick="removeAutoRow(this)">✕</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" class="btn-action" style="margin-top: 15px;" onclick="addAutoIngredientRow()">+ เพิ่มแถววัตถุดิบอัตโนมัติ</button>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">⚡ 3. ต้นทุนแฝง (ค่าไฟ, แพ็กเกจ, ค่าเสื่อม & ของเสีย)</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">ค่าบรรจุภัณฑ์ / กล่องรวม</label>
+                        <input type="number" id="costPackaging" class="shopee-input" value="0" oninput="autoCalculateSum()">
+                    </div>
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">ไฟฟ้า / ค่าแก๊สรวม</label>
+                        <input type="number" id="costUtilities" class="shopee-input" value="0" oninput="autoCalculateSum()">
+                    </div>
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">ค่าแรง / ค่าเสียเวลาทำ</label>
+                        <input type="number" id="costLabor" class="shopee-input" value="0" oninput="autoCalculateSum()">
+                    </div>
+                    <div>
+                        <label style="color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 5px;">ค่าวัตถุดิบเบ็ดเตล็ด</label>
+                        <input type="number" id="costMisc" class="shopee-input" value="0" oninput="autoCalculateSum()">
+                    </div>
+                    <div>
+                        <label style="color: var(--neon-gold); font-size: 0.85rem; display: block; margin-bottom: 5px;">⭐ ค่าเสื่อมราคาเครื่องจักร (บาท)</label>
+                        <input type="number" id="costDepreciation" class="shopee-input" value="5" oninput="autoCalculateSum()">
+                    </div>
+                    <div>
+                        <label style="color: var(--neon-gold); font-size: 0.85rem; display: block; margin-bottom: 5px;">⭐ ค่าสูญเสียวัตถุดิบระหว่างผลิต (Waste %)</label>
+                        <input type="number" id="costWastePercent" class="shopee-input" value="3" oninput="autoCalculateSum()">
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultContainer">
+                <div class="result-sub-box">
+                    <div class="section-title" style="margin-bottom: 10px;">🎯 รายงานผลวิเคราะห์ต้นทุน (คำนวณอัตโนมัติแบบเรียลไทม์)</div>
+                    <p style="color: #aaa; margin-bottom: 10px;" id="resRecipeTitleInfo">ชื่อสูตร: -</p>
+                    
+                    <div style="color: #b5b5c7; font-size: 0.9rem; text-align: center;">ต้นทุนสุทธิเฉลี่ยต่อชิ้น</div>
+                    <div class="result-number" id="resCostPerUnit">0.00 บาท / ชิ้น</div>
+
+                    <div class="breakdown-grid">
+                        <div class="breakdown-item">
+                            <span>📦 ต้นทุนวัตถุดิบรวม (+Waste):</span>
+                            <b id="resTotalIng">0.00 บาท</b>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>⚡ ต้นทุนแฝงรวม (+ค่าเสื่อม):</span>
+                            <b id="resTotalHidden">0.00 บาท</b>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>💰 ต้นทุนการผลิตทั้งหมด:</span>
+                            <b id="resGrandTotal">0.00 บาท</b>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>🍰 ผลผลิตทั้งหมดที่ทำได้:</span>
+                            <b id="resTotalYield">0 ชิ้น</b>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-sub-box">
+                    <div class="section-title">📊 กราฟวิเคราะห์สัดส่วนต้นทุน</div>
+                    <div class="chart-container-box">
+                        <div class="chart-header-row">
+                            <label for="chartTypeSelect" style="color: #ddd; font-size: 0.9rem;">เลือกรูปแบบกราฟ:</label>
+                            <select id="chartTypeSelect" class="shopee-select" style="width: 180px; padding: 8px;" onchange="renderSelectedChart()">
+                                <option value="doughnut">กราฟโดนัท (Doughnut)</option>
+                                <option value="pie">กราฟวงกลม (Pie)</option>
+                                <option value="bar">กราฟแท่ง (Bar)</option>
+                            </select>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="costAnalysisChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-sub-box">
+                    <div class="section-title">💡 ข้อเสนอแนะราคาขาย & จุดคุ้มทุน (BEP)</div>
+                    <div class="price-recommend-box">
+                        <div class="price-row"><span>ราคาขายแนะนำ (กำไร 30%):</span><b id="priceProfit30">0.00 บาท</b></div>
+                        <div class="price-row"><span>ราคาขายแนะนำ (กำไร 50% - แนะนำ):</span><b id="priceProfit50" style="color: var(--neon-gold);">0.00 บาท</b></div>
+                        <div class="price-row"><span>ราคาขายแนะนำ (กำไร 100% - พรีเมียม):</span><b id="priceProfit100" style="color: var(--neon-pink);">0.00 บาท</b></div>
+                        <div class="price-row" style="background: rgba(0, 255, 204, 0.08); margin-top: 10px; padding: 10px; border-radius: 8px;">
+                            <span style="color: var(--neon-cyan);">🎯 จุดคุ้มทุน (BEP - ยอดขายขั้นต่ำต่อเดือน):</span>
+                            <b id="resBreakEven" style="color: var(--neon-cyan);">0 ชิ้น / เดือน</b>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                    <button class="btn-action" style="background: linear-gradient(135deg, #2ecc71, #27ae60);" onclick="sendDataToDeliveryPage()">
+                        🚀 ส่งต้นทุนนี้ไปคำนวณเดลิเวอรี่ & GP ทันที
+                    </button>
+                    <button class="btn-action" style="background: #323242;" onclick="saveRecipeToHistory()">
+                        💾 บันทึกสูตรเก็บไว้ในประวัติ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const galaxyBg = document.getElementById('galaxyBg');
+            for (let i = 0; i < 150; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                const size = Math.random() * 2.5 + 1;
+                star.style.width = `${size}px`; star.style.height = `${size}px`;
+                star.style.setProperty('--duration', `${Math.random() * 3 + 2}s`);
+                star.style.animationDelay = `${Math.random() * 5}s`;
+                galaxyBg.appendChild(star);
+            }
+
+            const presetType = localStorage.getItem('profitMateSelectedPreset');
+            if (presetType === 'brownie') {
+                document.getElementById('recipeName').value = 'บราวน์นี่หนึบหนับฟอล์ยทอง';
+                document.getElementById('recipeYield').value = '12';
+                showToast("โหลดสูตรบราวน์นี่เรียบร้อยแล้ว!", "success");
+                localStorage.removeItem('profitMateSelectedPreset');
+            }
+
+            autoCalculateSum();
+        });
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `custom-toast ${type}`;
+            const icon = type === 'success' ? '✨' : '⚠️';
+            toast.innerHTML = `<div style="font-size:1.2rem;">${icon}</div><div>${message}</div>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function addAutoIngredientRow() {
+            const tbody = document.getElementById('autoIngredientTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'ingredient-row';
+            newRow.innerHTML = `
+                <td><input type="text" class="ing-name" placeholder="ชื่อวัตถุดิบ"></td>
+                <td><input type="number" class="ing-qty" placeholder="ปริมาณ" oninput="autoCalculateSum()"></td>
+                <td>
+                    <select class="ing-unit">
+                        <option value="gram">กรัม</option>
+                        <option value="ml">มิลลิลิตร</option>
+                        <option value="piece">ชิ้น</option>
+                        <option value="luuk">ลูก</option>
+                        <option value="foong">ฟอง</option>
+                        <option value="tablespoon">ช้อนโต๊ะ</option>
+                        <option value="teaspoon">ช้อนชา</option>
+                        <option value="pack">ซอง / ห่อ</option>
+                        <option value="cup">ถ้วยตวง</option>
+                    </select>
+                </td>
+                <td><input type="number" class="ing-price" placeholder="ราคา" oninput="autoCalculateSum()"></td>
+                <td style="text-align: center;"><button type="button" class="btn-danger-custom" onclick="removeAutoRow(this)">✕</button></td>
+            `;
+            tbody.appendChild(newRow);
+        }
+
+        function removeAutoRow(btn) {
+            const rows = document.querySelectorAll('.ingredient-row');
+            if (rows.length > 1) {
+                btn.closest('tr').remove();
+                autoCalculateSum();
+            } else {
+                showToast("ต้องมีรายการวัตถุดิบอย่างน้อย 1 รายการครับ", "error");
+            }
+        }
+
+        let lastCalculatedCostPerUnit = 0;
+        let currentIngCost = 0;
+        let currentHiddenCost = 0;
+        let myDynamicChart = null;
+
+        function autoCalculateSum() {
+            let totalIngredientCost = 0;
+            document.querySelectorAll('.ingredient-row').forEach(row => {
+                totalIngredientCost += parseFloat(row.querySelector('.ing-price').value) || 0;
+            });
+
+            const wastePercent = parseFloat(document.getElementById('costWastePercent').value) || 0;
+            const totalIngWithWaste = totalIngredientCost + (totalIngredientCost * (wastePercent / 100));
+
+            const pCost = parseFloat(document.getElementById('costPackaging').value) || 0;
+            const uCost = parseFloat(document.getElementById('costUtilities').value) || 0;
+            const lCost = parseFloat(document.getElementById('costLabor').value) || 0;
+            const mCost = parseFloat(document.getElementById('costMisc').value) || 0;
+            const dCost = parseFloat(document.getElementById('costDepreciation').value) || 0;
+            
+            const yieldCount = parseInt(document.getElementById('recipeYield').value) || 1;
+            const recipeName = document.getElementById('recipeName').value.trim() || 'ไม่ได้ระบุชื่อ';
+            const category = document.getElementById('recipeCategory').value;
+
+            const totalHiddenCost = pCost + uCost + lCost + mCost + dCost;
+            const grandTotal = totalIngWithWaste + totalHiddenCost;
+            const costPerUnit = grandTotal / (yieldCount > 0 ? yieldCount : 1);
+
+            lastCalculatedCostPerUnit = parseFloat(costPerUnit.toFixed(2));
+            currentIngCost = totalIngWithWaste;
+            currentHiddenCost = totalHiddenCost;
+
+            document.getElementById('resRecipeTitleInfo').textContent = `ชื่อสูตร: ${recipeName} (${category})`;
+            document.getElementById('resCostPerUnit').textContent = `${lastCalculatedCostPerUnit.toFixed(2)} บาท / ชิ้น`;
+            document.getElementById('resTotalIng').textContent = `${totalIngWithWaste.toFixed(2)} บาท`;
+            document.getElementById('resTotalHidden').textContent = `${totalHiddenCost.toFixed(2)} บาท`;
+            document.getElementById('resGrandTotal').textContent = `${grandTotal.toFixed(2)} บาท`;
+            document.getElementById('resTotalYield').textContent = `${yieldCount} ชิ้น`;
+
+            const price30 = lastCalculatedCostPerUnit * 1.30;
+            const price50 = lastCalculatedCostPerUnit * 1.50;
+            const price100 = lastCalculatedCostPerUnit * 2.00;
+
+            document.getElementById('priceProfit30').textContent = `${price30.toFixed(2)} บาท`;
+            document.getElementById('priceProfit50').textContent = `${price50.toFixed(2)} บาท`;
+            document.getElementById('priceProfit100').textContent = `${price100.toFixed(2)} บาท`;
+
+            const bep = Math.ceil(3000 / (price50 - lastCalculatedCostPerUnit || 1));
+            document.getElementById('resBreakEven').textContent = `${bep} ชิ้น / เดือน (จากต้นทุนคงที่ 3,000 บ.)`;
+
+            renderSelectedChart();
+        }
+
+        function renderSelectedChart() {
+            const chartType = document.getElementById('chartTypeSelect').value;
+            const ctx = document.getElementById('costAnalysisChart').getContext('2d');
+            if (myDynamicChart) myDynamicChart.destroy();
+
+            myDynamicChart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: ['ต้นทุนวัตถุดิบ (+Waste)', 'ต้นทุนแฝง (ค่าไฟ/แพ็กเกจ/ค่าเสื่อม)'],
+                    datasets: [{
+                        label: 'บาท',
+                        data: [currentIngCost, currentHiddenCost],
+                        backgroundColor: ['#ff2a85', '#ffd700'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } }
+                }
+            });
+        }
+
+        function sendDataToDeliveryPage() {
+            if (lastCalculatedCostPerUnit <= 0) { showToast("กรุณากรอกข้อมูลต้นทุนก่อนครับ!", "error"); return; }
+            localStorage.setItem('profitMateTransferCost', lastCalculatedCostPerUnit);
+            showToast("ส่งต้นทุนไปยังหน้าเดลิเวอรี่ & GP แล้ว!", "success");
+            setTimeout(() => { window.location.href = 'delivery.html'; }, 1000);
+        }
+
+        function saveRecipeToHistory() {
+            if (lastCalculatedCostPerUnit <= 0) { showToast("กรุณากรอกข้อมูลต้นทุนก่อนครับ!", "error"); return; }
+            const recipeName = document.getElementById('recipeName').value.trim() || 'สูตรเบเกอรี่';
+            const yieldCount = parseInt(document.getElementById('recipeYield').value) || 1;
+            
+            const ingredientsList = [];
+            document.querySelectorAll('.ingredient-row').forEach(row => {
+                const name = row.querySelector('.ing-name').value;
+                if (name) {
+                    ingredientsList.push({
+                        name: name,
+                        qty: row.querySelector('.ing-qty').value || 0,
+                        unit: row.querySelector('.ing-unit').value,
+                        price: row.querySelector('.ing-price').value || 0
+                    });
+                }
+            });
+
+            const newRecipe = {
+                name: recipeName,
+                totalCost: (lastCalculatedCostPerUnit * yieldCount).toFixed(2),
+                costPerUnit: lastCalculatedCostPerUnit.toFixed(2),
+                sellingPrice: (lastCalculatedCostPerUnit * 1.5).toFixed(2),
+                yield: yieldCount,
+                ingredients: ingredientsList
+            };
+
+            let history = JSON.parse(localStorage.getItem('profitMateRecipes')) || [];
+            history.unshift(newRecipe);
+            localStorage.setItem('profitMateRecipes', JSON.stringify(history));
+            showToast("บันทึกสูตรลงในประวัติสำเร็จ!", "success");
+            setTimeout(() => { window.location.href = 'history.html'; }, 1000);
+        }
+    </script>
+</body>
+</html> 
